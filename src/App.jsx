@@ -203,8 +203,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'https://gayara-backend.onrende
 
           {products.length === 0 ? (
             <div className="text-center py-20 border border-dashed border-[#DCCFB6]">
-              <p className="script-note">No pieces loaded yet. Add new dresses inside your Django Admin.</p>
-            </div>
+<p className="script-note">No beautiful pieces available yet. Stay tuned for our latest collections!</p>            </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {products
