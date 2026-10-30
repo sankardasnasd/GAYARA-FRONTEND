@@ -3,6 +3,7 @@ import axios from 'axios';
 import { MessageCircle } from 'lucide-react';
 import ContactUs from './components/ContactUs';
 import FAQ from './components/FAQ';
+import Footer from './components/Footer';
 
 /* Photos live in  public/gayara/  (from gayara-images.zip) */
 const img = (name) => `/gayara/${name}.jpg`;
@@ -277,13 +278,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'https://gayara-backend.onrende
 
       <FAQ />
 
-      {/* FOOTER */}
-      <footer className="mt-1 bg-[#F5EEE1] border-t border-[#DCCFB6] py-12 text-center">
-        <LogoMark className="w-9 mx-auto text-[#4A4A22]" />
-        <p className="brand-wordmark text-3xl mt-2">GAYARA</p>
-        <p className="brand-tagline text-base mt-2">Wear Your Story.</p>
-        <p className="caption mt-6 text-[#6E6A4E]">© 2026 GAYARA Handcrafted Studio. Made with patience and care.</p>
-      </footer>
+      <Footer />
     </div>
   );
 }
