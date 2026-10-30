@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { MessageCircle } from 'lucide-react';
 import ContactUs from './components/ContactUs';
+import FAQ from './components/FAQ';
 
 /* Photos live in  public/gayara/  (from gayara-images.zip) */
 const img = (name) => `/gayara/${name}.jpg`;
@@ -273,6 +274,8 @@ const API_BASE = import.meta.env.VITE_API_URL || 'https://gayara-backend.onrende
         </section>
       </main>
       <ContactUs />
+
+      <FAQ />
 
       {/* FOOTER */}
       <footer className="mt-1 bg-[#F5EEE1] border-t border-[#DCCFB6] py-12 text-center">
