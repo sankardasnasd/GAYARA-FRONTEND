@@ -15,12 +15,37 @@ const ContactUs = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log('Contact form submitted:', formData);
-    setSubmitted(true);
-    setFormData({ fullName: '', email: '', orderNumber: '', subject: '', message: '' });
-  };
+const API_URL = import.meta.env.VITE_API_URL || 'https://gayara-backend.onrender.com/api';
+
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  try {
+    const response = await fetch(`${API_URL}/contact/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        full_name: formData.fullName,
+        email: formData.email,
+        order_number: formData.orderNumber,
+        subject: formData.subject,
+        message: formData.message,
+      }),
+    });
+
+    if (response.ok) {
+      setSubmitted(true);
+      setFormData({ fullName: '', email: '', orderNumber: '', subject: '', message: '' });
+    } else {
+      alert("Failed to send message. Please try again.");
+    }
+  } catch (error) {
+    console.error("Submission error:", error);
+    alert("Connection error occurred. Please check your internet connection.");
+  }
+};
 
   return (
     <section className="min-h-screen bg-[#FDFBF7] text-[#2C2C24] py-16 px-4 sm:px-6 lg:px-8">
