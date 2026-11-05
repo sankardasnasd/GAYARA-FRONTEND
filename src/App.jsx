@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { MessageCircle, Menu, X } from 'lucide-react';
+import { MessageCircle, Menu, X, Sparkles, Ruler } from 'lucide-react';
 import ContactUs from './components/ContactUs';
 import FAQ from './components/FAQ';
 import Footer from './components/Footer';
@@ -22,11 +22,15 @@ const Sprig = ({ className = '', color = '#4A4A22' }) => (
   </svg>
 );
 
+const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'Custom'];
+
 function App() {
   const [products, setProducts] = useState([]);
   const [crafts, setCrafts] = useState([]);
   const [selectedCraft, setSelectedCraft] = useState('ALL');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [modalSize, setModalSize] = useState('M');
 
   const API_BASE = import.meta.env.VITE_API_URL || 'https://gayara-backend.onrender.com/api';
 
@@ -72,9 +76,10 @@ function App() {
     { label: 'Crochet Lace Edging', img: img('detail-3') },
   ];
 
-  const handleWhatsApp = (title, price) => {
+  const handleWhatsApp = (title, price, size = '') => {
+    const sizeInfo = size ? `\n• Size: ${size}` : '';
     const text = encodeURIComponent(
-      `Hello GAYARA! I am in love with the artisanal dress: "${title}" (₹${price || 'Inquiry'}). Can you share availability?`
+      `Hello GAYARA Studio! 🌸\n\nI am in love with the handcrafted piece:\n• Dress: "${title}"\n• Price: ₹${price || 'Inquiry'}${sizeInfo}\n\nCan you please share availability and ordering details?`
     );
     window.open(`https://wa.me/917306735100?text=${text}`, '_blank');
   };
@@ -88,7 +93,7 @@ function App() {
     <div className="min-h-screen bg-[#EFE6D5] text-[#3F4020] scroll-smooth">
       
       {/* NAVBAR */}
-      <header className="sticky top-0 z-50 bg-[#F5EEE1]/95 backdrop-blur-md border-b border-[#DCCFB6] shadow-sm">
+      <header className="sticky top-0 z-40 bg-[#F5EEE1]/95 backdrop-blur-md border-b border-[#DCCFB6] shadow-sm">
         <div className="max-w-6xl mx-auto px-5 py-3.5 flex items-center justify-between">
           
           {/* Brand Logo */}
@@ -247,29 +252,48 @@ function App() {
               {products
                 .filter((p) => selectedCraft === 'ALL' || p.craft_name === selectedCraft)
                 .map((dress) => (
-                  <article key={dress.id} className="bg-[#FAF7F2] border border-[#DCCFB6] rounded-lg overflow-hidden flex flex-col shadow-sm hover:shadow-md transition-shadow">
+                  <article 
+                    key={dress.id} 
+                    className="bg-[#FAF7F2] border border-[#DCCFB6] rounded-lg overflow-hidden flex flex-col shadow-sm hover:shadow-md transition-shadow cursor-pointer group"
+                    onClick={() => {
+                      setSelectedProduct(dress);
+                      setModalSize('M');
+                    }}
+                  >
                     <div className="tile aspect-[3/4] relative overflow-hidden">
-                      <img src={dress.image} alt={dress.name} className="w-full h-full object-cover !object-top hover:scale-105 transition-transform duration-500" />
+                      <img 
+                        src={dress.image} 
+                        alt={dress.name} 
+                        className="w-full h-full object-cover !object-top group-hover:scale-105 transition-transform duration-500" 
+                      />
                       {dress.silhouette_name && (
                         <span className="absolute top-3 left-3 bg-[#F5EEE1]/95 px-3 py-1 text-[11px] uppercase tracking-widest text-[#4A4A22] rounded shadow-sm">
                           {dress.silhouette_name}
                         </span>
                       )}
+                      <span className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm text-[#4A4A22] text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                        Quick View
+                      </span>
                     </div>
+
                     <div className="p-5 flex-grow flex flex-col justify-between">
                       <div>
                         <div className="flex justify-between text-xs text-[#6E6A4E] mb-1 font-medium">
                           <span className="text-[#B5532A] uppercase tracking-wider">{dress.craft_name || 'Handmade'}</span>
                           <span>{dress.fabric}</span>
                         </div>
-                        <h3 className="text-2xl leading-tight font-serif text-[#4A4A22] mt-1">{dress.name}</h3>
+                        <h3 className="text-2xl leading-tight font-serif text-[#4A4A22] mt-1 group-hover:text-[#B5532A] transition-colors">{dress.name}</h3>
                         <p className="text-sm text-[#6E6A4E] mt-2 line-clamp-2 font-light leading-relaxed">{dress.description}</p>
                       </div>
-                      <div className="mt-6 pt-4 border-t border-[#DCCFB6] flex items-center justify-between">
+
+                      <div className="mt-6 pt-4 border-t border-[#DCCFB6] flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
                         <span className="font-serif-vintage text-2xl text-[#4A4A22] font-semibold">
                           ₹{parseFloat(dress.price).toLocaleString('en-IN')}
                         </span>
-                        <button onClick={() => handleWhatsApp(dress.name, dress.price)} className="btn-gayara !py-2.5 !px-4 !text-xs inline-flex items-center gap-1.5 uppercase tracking-wider">
+                        <button 
+                          onClick={() => handleWhatsApp(dress.name, dress.price)} 
+                          className="btn-gayara !py-2.5 !px-4 !text-xs inline-flex items-center gap-1.5 uppercase tracking-wider"
+                        >
                           <MessageCircle className="w-3.5 h-3.5" /> Inquire / Order
                         </button>
                       </div>
@@ -325,6 +349,109 @@ function App() {
 
       {/* Footer */}
       <Footer />
+
+      {/* PRODUCT QUICK VIEW MODAL */}
+      {selectedProduct && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all"
+          onClick={() => setSelectedProduct(null)}
+        >
+          <div 
+            className="relative w-full max-w-3xl bg-[#FAF7F2] rounded-3xl border border-[#DCCFB6] shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-2 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button 
+              onClick={() => setSelectedProduct(null)}
+              className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-white/80 border border-[#DCCFB6] text-[#4A4A22] flex items-center justify-center hover:bg-white transition-all shadow-sm"
+              aria-label="Close modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Product Image */}
+            <div className="relative bg-[#EFE6D5] min-h-[320px] md:min-h-full">
+              <img 
+                src={selectedProduct.image} 
+                alt={selectedProduct.name} 
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute top-3 left-3 bg-[#F5EEE1]/95 px-3 py-1 rounded-full text-[11px] font-semibold text-[#4A4A22] border border-[#DCCFB6] tracking-wider uppercase">
+                {selectedProduct.craft_name || 'Artisanal'}
+              </div>
+            </div>
+
+            {/* Details Section */}
+            <div className="p-6 md:p-8 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#B5532A] uppercase tracking-wider mb-1">
+                  <Sparkles className="w-3.5 h-3.5" /> Handcrafted Studio Piece
+                </div>
+
+                <h3 className="font-serif text-2xl md:text-3xl text-[#4A4A22] leading-tight">
+                  {selectedProduct.name}
+                </h3>
+
+                <p className="font-serif-vintage text-2xl font-bold text-[#4A4A22] mt-2">
+                  ₹{parseFloat(selectedProduct.price).toLocaleString('en-IN')}
+                </p>
+
+                <p className="text-sm text-[#6E6A4E] mt-3 leading-relaxed font-light">
+                  {selectedProduct.description || "A delicate vintage-inspired silhouette handcrafted with thoughtful detailing and timeless charm."}
+                </p>
+
+                {/* Size Selector */}
+                <div className="mt-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-[#4A4A22] uppercase tracking-wider">Select Size</span>
+                    <a href="#faq" onClick={() => setSelectedProduct(null)} className="text-xs text-[#B5532A] flex items-center gap-1 hover:underline">
+                      <Ruler className="w-3.5 h-3.5" /> Size Guide
+                    </a>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    {SIZES.map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => setModalSize(size)}
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                          modalSize === size
+                            ? 'bg-[#4A4A22] text-[#F5EEE1] border-[#4A4A22] shadow-sm'
+                            : 'bg-white text-[#4A4A22] border-[#DCCFB6] hover:border-[#4A4A22]'
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Artisan Highlights */}
+                <div className="mt-6 pt-5 border-t border-[#DCCFB6]/60 grid grid-cols-2 gap-2.5 text-xs text-[#6E6A4E]">
+                  <div>🌿 {selectedProduct.fabric || '100% Breathable Fabric'}</div>
+                  <div>🧵 Hand-stitched Detailing</div>
+                  <div>✨ Gentle Hand Wash</div>
+                  <div>📦 Pan-India Shipping</div>
+                </div>
+              </div>
+
+              {/* Order via WhatsApp */}
+              <div className="mt-8 pt-4">
+                <button
+                  onClick={() => handleWhatsApp(selectedProduct.name, selectedProduct.price, modalSize)}
+                  className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-full bg-[#4A4A22] text-[#F5EEE1] font-medium text-xs uppercase tracking-wider hover:bg-[#3F4020] transition-all shadow-md active:scale-[0.99]"
+                >
+                  <MessageCircle className="w-4 h-4 fill-current text-[#A9B890]" />
+                  Order on WhatsApp (Size: {modalSize})
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
