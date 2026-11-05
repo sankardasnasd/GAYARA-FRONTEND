@@ -125,8 +125,8 @@ const Footer = () => {
                 <h5 className="font-semibold text-[#4A4A22] uppercase tracking-wider mb-2">Need Help?</h5>
                 <p className="text-[#5C573E] mb-2">Have a question about your favourite dress or order?</p>
                 <div className="space-y-1 text-[#4A4A22]">
-                  <p><span className="text-[#6E6A4E]">Email:</span> <a href="mailto:support@gayara.com" className="hover:underline">support@gayara.com</a></p>
-                  <p><span className="text-[#6E6A4E]">WhatsApp:</span> <a href="https://wa.me/910000000000" target="_blank" rel="noreferrer" className="hover:underline">+91 00000 00000</a></p>
+                  <p><span className="text-[#6E6A4E]">Email:</span> <a href="mailto:contactgayara@gmail.com" className="hover:underline">contactgayara@gmail.com</a></p>
+                  <p><span className="text-[#6E6A4E]">WhatsApp:</span> <a href="https://wa.me/910000000000" target="_blank" rel="noreferrer" className="hover:underline">+91 9961207239</a></p>
                   <p><span className="text-[#6E6A4E]">Hours:</span> Mon – Sat: 9:30 AM – 6:30 PM IST</p>
                 </div>
               </div>
