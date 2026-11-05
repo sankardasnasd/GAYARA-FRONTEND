@@ -22,8 +22,6 @@ const Sprig = ({ className = '', color = '#4A4A22' }) => (
   </svg>
 );
 
-const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'Custom'];
-
 function App() {
   const [products, setProducts] = useState([]);
   const [crafts, setCrafts] = useState([]);
@@ -89,6 +87,19 @@ function App() {
       active ? 'bg-[#4A4A22] text-[#F5EEE1]' : 'bg-[#FBF7EE] border border-[#DCCFB6] text-[#4A4A22] hover:bg-[#EADFCB]'
     }`;
 
+  const getProductSizes = (product) => {
+    if (!product || !product.available_sizes) {
+      return ['XS', 'S', 'M', 'L', 'XL'];
+    }
+    return product.available_sizes.split(',').map((s) => s.trim()).filter(Boolean);
+  };
+
+  const handleOpenModal = (dress) => {
+    setSelectedProduct(dress);
+    const available = getProductSizes(dress);
+    setModalSize(available[0] || 'M');
+  };
+
   return (
     <div className="min-h-screen bg-[#EFE6D5] text-[#3F4020] scroll-smooth">
       
@@ -96,13 +107,11 @@ function App() {
       <header className="sticky top-0 z-40 bg-[#F5EEE1]/95 backdrop-blur-md border-b border-[#DCCFB6] shadow-sm">
         <div className="max-w-6xl mx-auto px-5 py-3.5 flex items-center justify-between">
           
-          {/* Brand Logo */}
           <a href="#top" className="flex items-center gap-2.5 text-[#4A4A22] group">
             <LogoMark className="w-7 h-7 transition-transform group-hover:scale-105" />
             <span className="brand-wordmark text-2xl tracking-wider font-serif">GAYARA</span>
           </a>
 
-          {/* Desktop Nav Links */}
           <nav className="hidden md:flex items-center gap-7 caption !text-[0.95rem]">
             <a href="#styles" className="hover:text-[#B5532A] transition-colors">Styles</a>
             <a href="#crafts" className="hover:text-[#B5532A] transition-colors">Crafts</a>
@@ -113,7 +122,6 @@ function App() {
             <a href="#collection" className="btn-gayara !py-2 !px-5 !text-xs uppercase tracking-widest ml-2">Shop Now</a>
           </nav>
 
-          {/* Mobile Hamburger Button */}
           <button 
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)} 
@@ -124,7 +132,6 @@ function App() {
           </button>
         </div>
 
-        {/* Mobile Dropdown Menu */}
         {mobileMenuOpen && (
           <div className="md:hidden bg-[#F5EEE1] border-b border-[#DCCFB6] px-6 py-4 space-y-3 font-serif text-sm">
             <a href="#styles" onClick={() => setMobileMenuOpen(false)} className="block py-1 text-[#4A4A22] hover:text-[#B5532A]">Styles</a>
@@ -255,10 +262,7 @@ function App() {
                   <article 
                     key={dress.id} 
                     className="bg-[#FAF7F2] border border-[#DCCFB6] rounded-lg overflow-hidden flex flex-col shadow-sm hover:shadow-md transition-shadow cursor-pointer group"
-                    onClick={() => {
-                      setSelectedProduct(dress);
-                      setModalSize('M');
-                    }}
+                    onClick={() => handleOpenModal(dress)}
                   >
                     <div className="tile aspect-[3/4] relative overflow-hidden">
                       <img 
@@ -360,7 +364,6 @@ function App() {
             className="relative w-full max-w-3xl bg-[#FAF7F2] rounded-3xl border border-[#DCCFB6] shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-2 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Close Button */}
             <button 
               onClick={() => setSelectedProduct(null)}
               className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-white/80 border border-[#DCCFB6] text-[#4A4A22] flex items-center justify-center hover:bg-white transition-all shadow-sm"
@@ -369,7 +372,6 @@ function App() {
               <X className="w-5 h-5" />
             </button>
 
-            {/* Product Image */}
             <div className="relative bg-[#EFE6D5] min-h-[320px] md:min-h-full">
               <img 
                 src={selectedProduct.image} 
@@ -381,7 +383,6 @@ function App() {
               </div>
             </div>
 
-            {/* Details Section */}
             <div className="p-6 md:p-8 flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-[#B5532A] uppercase tracking-wider mb-1">
@@ -400,7 +401,6 @@ function App() {
                   {selectedProduct.description || "A delicate vintage-inspired silhouette handcrafted with thoughtful detailing and timeless charm."}
                 </p>
 
-                {/* Size Selector */}
                 <div className="mt-6">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold text-[#4A4A22] uppercase tracking-wider">Select Size</span>
@@ -410,7 +410,7 @@ function App() {
                   </div>
                   
                   <div className="flex flex-wrap gap-2">
-                    {SIZES.map((size) => (
+                    {getProductSizes(selectedProduct).map((size) => (
                       <button
                         key={size}
                         type="button"
@@ -427,7 +427,6 @@ function App() {
                   </div>
                 </div>
 
-                {/* Artisan Highlights */}
                 <div className="mt-6 pt-5 border-t border-[#DCCFB6]/60 grid grid-cols-2 gap-2.5 text-xs text-[#6E6A4E]">
                   <div>🌿 {selectedProduct.fabric || '100% Breathable Fabric'}</div>
                   <div>🧵 Hand-stitched Detailing</div>
@@ -436,7 +435,6 @@ function App() {
                 </div>
               </div>
 
-              {/* Order via WhatsApp */}
               <div className="mt-8 pt-4">
                 <button
                   onClick={() => handleWhatsApp(selectedProduct.name, selectedProduct.price, modalSize)}
