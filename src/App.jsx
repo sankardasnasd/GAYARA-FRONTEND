@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
-import { MessageCircle, Menu, X, Sparkles, Ruler, Search } from 'lucide-react';
+import { MessageCircle, Menu, X, Sparkles, Ruler, Search, SlidersHorizontal, RotateCcw } from 'lucide-react';
 import ContactUs from './components/ContactUs';
 import FAQ from './components/FAQ';
 import Footer from './components/Footer';
@@ -22,35 +22,62 @@ const Sprig = ({ className = '', color = '#4A4A22' }) => (
   </svg>
 );
 
+const ALL_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+
 function App() {
   const [products, setProducts] = useState([]);
   const [crafts, setCrafts] = useState([]);
-  const [selectedCraft, setSelectedCraft] = useState('ALL');
+  const [silhouettes, setSilhouettes] = useState([]);
+  
+  // UI States
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [modalSize, setModalSize] = useState('M');
 
-  // Search & Sorting States
+  // Filters State
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('featured');
+  const [selectedCraft, setSelectedCraft] = useState('ALL');
+  const [selectedSilhouette, setSelectedSilhouette] = useState('ALL');
+  const [selectedColor, setSelectedColor] = useState('ALL');
+  const [selectedSize, setSelectedSize] = useState('ALL');
+  const [maxPrice, setMaxPrice] = useState(10000);
 
   const API_BASE = import.meta.env.VITE_API_URL || 'https://gayara-backend.onrender.com/api';
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [prodRes, craftRes] = await Promise.all([
+        const [prodRes, craftRes, silRes] = await Promise.all([
           axios.get(`${API_BASE}/products/`),
           axios.get(`${API_BASE}/crafts/`),
+          axios.get(`${API_BASE}/silhouettes/`).catch(() => ({ data: [] })),
         ]);
         setProducts(prodRes.data);
         setCrafts(craftRes.data);
+        setSilhouettes(silRes.data);
+
+        // പരമാവധി പ്രൈസ് തനിയെ കണ്ടുപിടിക്കാൻ
+        if (prodRes.data.length > 0) {
+          const highest = Math.max(...prodRes.data.map((p) => parseFloat(p.price) || 0));
+          setMaxPrice(highest > 0 ? Math.ceil(highest) : 10000);
+        }
       } catch (err) {
         console.error('Error fetching data:', err);
       }
     };
     fetchData();
   }, [API_BASE]);
+
+  // പ്രോഡക്റ്റുകളിൽ ഉള്ള കളറുകൾ ഓട്ടോമാറ്റിക് ആയി എടുക്കാൻ
+  const availableColors = useMemo(() => {
+    const set = new Set();
+    products.forEach((p) => {
+      if (p.color && p.color.trim()) set.add(p.color.trim());
+    });
+    return Array.from(set);
+  }, [products]);
 
   const signatureStyles = [
     { title: 'Bohemian / Peasant Dress', img: img('style-1') },
@@ -87,11 +114,10 @@ function App() {
   };
 
   const pill = (active) =>
-    `px-4 py-1.5 rounded-full text-xs uppercase tracking-wider transition-colors cursor-pointer ${
-      active ? 'bg-[#4A4A22] text-[#F5EEE1]' : 'bg-[#FBF7EE] border border-[#DCCFB6] text-[#4A4A22] hover:bg-[#EADFCB]'
+    `px-3 py-1.5 rounded-full text-xs uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
+      active ? 'bg-[#4A4A22] text-[#F5EEE1] shadow-sm' : 'bg-[#FAF7F2] border border-[#DCCFB6] text-[#4A4A22] hover:bg-[#EADFCB]'
     }`;
 
-  // Helper to safely parse sizes from backend or fall back to default
   const getProductSizes = (product) => {
     if (!product || !product.available_sizes) {
       return ['XS', 'S', 'M', 'L', 'XL'];
@@ -105,22 +131,65 @@ function App() {
     setModalSize(available[0] || 'M');
   };
 
-  // Search and Sort Pipeline
-  const filteredProducts = products
-    .filter((p) => {
-      const matchesCraft = selectedCraft === 'ALL' || p.craft_name === selectedCraft;
-      const term = searchTerm.toLowerCase();
-      const matchesSearch = 
-        p.name.toLowerCase().includes(term) || 
-        (p.fabric && p.fabric.toLowerCase().includes(term)) ||
-        (p.craft_name && p.craft_name.toLowerCase().includes(term));
-      return matchesCraft && matchesSearch;
-    })
-    .sort((a, b) => {
-      if (sortBy === 'price-low') return parseFloat(a.price) - parseFloat(b.price);
-      if (sortBy === 'price-high') return parseFloat(b.price) - parseFloat(a.price);
-      return 0;
-    });
+  const resetFilters = () => {
+    setSelectedCraft('ALL');
+    setSelectedSilhouette('ALL');
+    setSelectedColor('ALL');
+    setSelectedSize('ALL');
+    setSearchTerm('');
+    if (products.length > 0) {
+      const highest = Math.max(...products.map((p) => parseFloat(p.price) || 0));
+      setMaxPrice(highest > 0 ? Math.ceil(highest) : 10000);
+    }
+  };
+
+  // എണ്ണൽ: എത്ര ഫിൽട്ടറുകൾ നിലവിൽ ആക്ടീവ് ആണ്
+  const activeFilterCount = [
+    selectedCraft !== 'ALL',
+    selectedSilhouette !== 'ALL',
+    selectedColor !== 'ALL',
+    selectedSize !== 'ALL',
+    searchTerm !== '',
+  ].filter(Boolean).length;
+
+  // ഫിൽട്ടറും സോർട്ടും ചെയ്യുന്ന പ്രധാന ലോജിക്
+  const filteredProducts = useMemo(() => {
+    return products
+      .filter((p) => {
+        // 1. Craft Filter
+        const matchesCraft = selectedCraft === 'ALL' || p.craft_name === selectedCraft;
+
+        // 2. Silhouette Filter
+        const matchesSilhouette = selectedSilhouette === 'ALL' || p.silhouette_name === selectedSilhouette;
+
+        // 3. Color Filter
+        const matchesColor = selectedColor === 'ALL' || (p.color && p.color.toLowerCase() === selectedColor.toLowerCase());
+
+        // 4. Size Filter
+        const sizes = getProductSizes(p);
+        const matchesSize = selectedSize === 'ALL' || sizes.includes(selectedSize);
+
+        // 5. Price Filter
+        const price = parseFloat(p.price) || 0;
+        const matchesPrice = price <= maxPrice;
+
+        // 6. Search Term Filter
+        const term = searchTerm.toLowerCase();
+        const matchesSearch =
+          !term ||
+          p.name.toLowerCase().includes(term) ||
+          (p.fabric && p.fabric.toLowerCase().includes(term)) ||
+          (p.craft_name && p.craft_name.toLowerCase().includes(term)) ||
+          (p.silhouette_name && p.silhouette_name.toLowerCase().includes(term));
+
+        return matchesCraft && matchesSilhouette && matchesColor && matchesSize && matchesPrice && matchesSearch;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'price-low') return parseFloat(a.price) - parseFloat(b.price);
+        if (sortBy === 'price-high') return parseFloat(b.price) - parseFloat(a.price);
+        return 0;
+      });
+  }, [products, selectedCraft, selectedSilhouette, selectedColor, selectedSize, maxPrice, searchTerm, sortBy]);
 
   return (
     <div className="min-h-screen bg-[#EFE6D5] text-[#3F4020] scroll-smooth">
@@ -128,14 +197,11 @@ function App() {
       {/* NAVBAR */}
       <header className="sticky top-0 z-40 bg-[#F5EEE1]/95 backdrop-blur-md border-b border-[#DCCFB6] shadow-sm">
         <div className="max-w-6xl mx-auto px-5 py-3.5 flex items-center justify-between">
-          
-          {/* Brand Logo */}
           <a href="#top" className="flex items-center gap-2.5 text-[#4A4A22] group">
             <LogoMark className="w-7 h-7 transition-transform group-hover:scale-105" />
             <span className="brand-wordmark text-2xl tracking-wider font-serif">GAYARA</span>
           </a>
 
-          {/* Desktop Nav Links */}
           <nav className="hidden md:flex items-center gap-7 caption !text-[0.95rem]">
             <a href="#styles" className="hover:text-[#B5532A] transition-colors">Styles</a>
             <a href="#crafts" className="hover:text-[#B5532A] transition-colors">Crafts</a>
@@ -146,36 +212,33 @@ function App() {
             <a href="#collection" className="btn-gayara !py-2 !px-5 !text-xs uppercase tracking-widest ml-2">Shop Now</a>
           </nav>
 
-          {/* Mobile Hamburger Button */}
           <button 
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)} 
             className="md:hidden text-[#4A4A22] p-1.5 rounded-lg hover:bg-[#EAE1D0] transition-colors"
-            aria-label="Toggle Menu"
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
 
-        {/* Mobile Dropdown Menu */}
         {mobileMenuOpen && (
           <div className="md:hidden bg-[#F5EEE1] border-b border-[#DCCFB6] px-6 py-4 space-y-3 font-serif text-sm">
-            <a href="#styles" onClick={() => setMobileMenuOpen(false)} className="block py-1 text-[#4A4A22] hover:text-[#B5532A]">Styles</a>
-            <a href="#crafts" onClick={() => setMobileMenuOpen(false)} className="block py-1 text-[#4A4A22] hover:text-[#B5532A]">Crafts</a>
-            <a href="#fabrics" onClick={() => setMobileMenuOpen(false)} className="block py-1 text-[#4A4A22] hover:text-[#B5532A]">Fabrics</a>
-            <a href="#collection" onClick={() => setMobileMenuOpen(false)} className="block py-1 font-semibold text-[#4A4A22] hover:text-[#B5532A]">Products</a>
-            <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="block py-1 text-[#4A4A22] hover:text-[#B5532A]">FAQ</a>
-            <a href="#contact" onClick={() => setMobileMenuOpen(false)} className="block py-1 text-[#4A4A22] hover:text-[#B5532A]">Contact Us</a>
+            <a href="#styles" onClick={() => setMobileMenuOpen(false)} className="block py-1 text-[#4A4A22]">Styles</a>
+            <a href="#crafts" onClick={() => setMobileMenuOpen(false)} className="block py-1 text-[#4A4A22]">Crafts</a>
+            <a href="#fabrics" onClick={() => setMobileMenuOpen(false)} className="block py-1 text-[#4A4A22]">Fabrics</a>
+            <a href="#collection" onClick={() => setMobileMenuOpen(false)} className="block py-1 font-semibold text-[#4A4A22]">Products</a>
+            <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="block py-1 text-[#4A4A22]">FAQ</a>
+            <a href="#contact" onClick={() => setMobileMenuOpen(false)} className="block py-1 text-[#4A4A22]">Contact Us</a>
           </div>
         )}
       </header>
 
       <main id="top" className="max-w-6xl mx-auto p-1 md:p-1.5 space-y-1 md:space-y-1.5">
         
-        {/* ROW 1: Hero Section */}
+        {/* ROW 1: Hero */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-1 md:gap-1.5">
           <div className="tile aspect-[413/373]">
-            <img src={img('hero')} alt="Woman in an embroidered bohemian dress holding wildflowers" className="w-full h-full object-cover" />
+            <img src={img('hero')} alt="Artisanal fashion" className="w-full h-full object-cover" />
           </div>
 
           <div className="panel flex flex-col items-center justify-center text-center aspect-[421/373] py-10 bg-[#F5EEE1]">
@@ -186,7 +249,7 @@ function App() {
 
           <div className="flex gap-1 md:gap-1.5 aspect-[416/373]">
             <div className="tile flex-[298]">
-              <img src={img('rack')} alt="Rack of handcrafted dresses" className="w-full h-full object-cover" />
+              <img src={img('rack')} alt="Dresses rack" className="w-full h-full object-cover" />
             </div>
             <div className="panel-warm flex-[112] flex flex-col items-center justify-between py-5 px-1 text-center bg-[#EAE0D0]">
               <p className="script-note !text-[1.15rem] md:!text-[1.3rem] -rotate-6 mt-6">
@@ -214,7 +277,7 @@ function App() {
             </div>
           </div>
           <div className="tile min-h-[260px] overflow-hidden rounded-md">
-            <img src={img('stitch')} alt="Floral hand embroidery on linen" className="w-full h-full object-cover" />
+            <img src={img('stitch')} alt="Hand embroidery" className="w-full h-full object-cover" />
           </div>
         </section>
 
@@ -253,22 +316,24 @@ function App() {
                 <span key={c} className="swatch-dot !w-7 !h-7 rounded-full shadow-inner" style={{ backgroundColor: c }} title={c} />
               ))}
             </div>
-            <p className="caption !text-left mt-3 !leading-relaxed text-xs text-[#6E6A4E]">
-              Earthy Tones &nbsp;|&nbsp; Soft Pastels<br />Natural Shades
-            </p>
           </div>
         </section>
 
-        {/* ROW 4: Live Django Products Collection */}
+        {/* ROW 4: Live Django Products Collection with Advanced Multi-Filter */}
         <section id="collection" className="panel p-5 md:p-8 bg-[#F5EEE1] scroll-mt-20">
+          
+          {/* Header & Quick Craft Buttons */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
             <div>
               <h2 className="section-title font-serif text-3xl text-[#4A4A22]">The Studio Collection</h2>
               <p className="text-xs text-[#6E6A4E] mt-1 font-light">Handcrafted artisanal silhouettes curated for individual style.</p>
             </div>
-            {/* Craft Pill Filters */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <button onClick={() => setSelectedCraft('ALL')} className={pill(selectedCraft === 'ALL')}>All Pieces</button>
+            
+            {/* Quick Craft Filter Pills */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
+              <button onClick={() => setSelectedCraft('ALL')} className={pill(selectedCraft === 'ALL')}>
+                All Crafts
+              </button>
               {crafts.map((c) => (
                 <button key={c.id} onClick={() => setSelectedCraft(c.name)} className={pill(selectedCraft === c.name)}>
                   {c.name}
@@ -277,55 +342,103 @@ function App() {
             </div>
           </div>
 
-          {/* Search Bar & Sort Dropdown */}
+          {/* Action Row: Search + Filter Drawer Toggle + Sort */}
           <div className="flex flex-col sm:flex-row gap-3 items-center justify-between mb-6 pb-4 border-b border-[#DCCFB6]/60">
+            
+            {/* Search Input */}
             <div className="relative w-full sm:w-80">
               <input
                 type="text"
-                placeholder="Search by dress, craft, or fabric..."
+                placeholder="Search dress, fabric, craft..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-[#FAF7F2] border border-[#DCCFB6] rounded-full py-2 pl-9 pr-8 text-xs text-[#4A4A22] placeholder-[#8A846B] focus:outline-none focus:border-[#4A4A22] transition-colors shadow-sm"
+                className="w-full bg-[#FAF7F2] border border-[#DCCFB6] rounded-full py-2 pl-9 pr-8 text-xs text-[#4A4A22] placeholder-[#8A846B] focus:outline-none focus:border-[#4A4A22]"
               />
               <Search className="w-3.5 h-3.5 text-[#8A846B] absolute left-3.5 top-1/2 -translate-y-1/2" />
               {searchTerm && (
-                <button 
-                  onClick={() => setSearchTerm('')} 
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[#8A846B] hover:text-[#4A4A22]"
-                >
-                  ✕
-                </button>
+                <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[#8A846B]">✕</button>
               )}
             </div>
 
-            <div className="flex items-center gap-2 self-end sm:self-auto text-xs">
-              <span className="text-[#6E6A4E]">Sort by:</span>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="bg-[#FAF7F2] border border-[#DCCFB6] rounded-lg py-1.5 px-3 text-xs text-[#4A4A22] focus:outline-none cursor-pointer shadow-sm"
+            <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+              {/* Filter Button with Count Badge */}
+              <button
+                onClick={() => setFilterDrawerOpen(true)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full border text-xs font-medium transition-all ${
+                  activeFilterCount > 0
+                    ? 'bg-[#4A4A22] text-[#F5EEE1] border-[#4A4A22]'
+                    : 'bg-[#FAF7F2] border-[#DCCFB6] text-[#4A4A22] hover:bg-[#EAE0D0]'
+                }`}
               >
-                <option value="featured">Featured Pieces</option>
-                <option value="price-low">Price: Low to High</option>
-                <option value="price-high">Price: High to Low</option>
-              </select>
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span>Filters</span>
+                {activeFilterCount > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-[#B5532A] text-white text-[10px] flex items-center justify-center font-bold">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Price Sort Dropdown */}
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-[#6E6A4E] hidden sm:inline">Sort:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="bg-[#FAF7F2] border border-[#DCCFB6] rounded-lg py-1.5 px-3 text-xs text-[#4A4A22] focus:outline-none cursor-pointer"
+                >
+                  <option value="featured">Featured Pieces</option>
+                  <option value="price-low">Price: Low to High</option>
+                  <option value="price-high">Price: High to Low</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          {/* Product Listing */}
+          {/* Active Filter Tags Strip (Show if any filter is active) */}
+          {activeFilterCount > 0 && (
+            <div className="flex items-center gap-2 flex-wrap mb-6 text-xs">
+              <span className="text-[#6E6A4E]">Active:</span>
+              {selectedCraft !== 'ALL' && (
+                <span className="bg-[#FAF7F2] border border-[#DCCFB6] text-[#4A4A22] px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                  Craft: {selectedCraft}
+                  <button onClick={() => setSelectedCraft('ALL')} className="hover:text-[#B5532A]">✕</button>
+                </span>
+              )}
+              {selectedSilhouette !== 'ALL' && (
+                <span className="bg-[#FAF7F2] border border-[#DCCFB6] text-[#4A4A22] px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                  Silhouette: {selectedSilhouette}
+                  <button onClick={() => setSelectedSilhouette('ALL')} className="hover:text-[#B5532A]">✕</button>
+                </span>
+              )}
+              {selectedColor !== 'ALL' && (
+                <span className="bg-[#FAF7F2] border border-[#DCCFB6] text-[#4A4A22] px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                  Color: {selectedColor}
+                  <button onClick={() => setSelectedColor('ALL')} className="hover:text-[#B5532A]">✕</button>
+                </span>
+              )}
+              {selectedSize !== 'ALL' && (
+                <span className="bg-[#FAF7F2] border border-[#DCCFB6] text-[#4A4A22] px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                  Size: {selectedSize}
+                  <button onClick={() => setSelectedSize('ALL')} className="hover:text-[#B5532A]">✕</button>
+                </span>
+              )}
+              <button
+                onClick={resetFilters}
+                className="text-xs text-[#B5532A] flex items-center gap-1 ml-2 underline hover:opacity-80"
+              >
+                <RotateCcw className="w-3 h-3" /> Reset all
+              </button>
+            </div>
+          )}
+
+          {/* Product Grid */}
           {filteredProducts.length === 0 ? (
             <div className="text-center py-20 border border-dashed border-[#DCCFB6] rounded-xl">
-              <p className="script-note text-lg text-[#6E6A4E]">
-                {products.length === 0 ? "No beautiful pieces available yet. Stay tuned!" : "No dresses match your search criteria."}
-              </p>
-              {searchTerm && (
-                <button 
-                  onClick={() => { setSearchTerm(''); setSelectedCraft('ALL'); }}
-                  className="mt-3 text-xs text-[#B5532A] underline font-medium"
-                >
-                  Clear search and filters
-                </button>
-              )}
+              <p className="script-note text-lg text-[#6E6A4E]">No dresses match these selected filters.</p>
+              <button onClick={resetFilters} className="mt-3 text-xs text-[#B5532A] underline font-medium">
+                Clear all filters
+              </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -391,20 +504,12 @@ function App() {
               </figcaption>
             </figure>
           ))}
-          <div className="tile overflow-hidden">
-            <img src={img('tag')} alt="GAYARA hang tag" className="w-full h-full object-cover" />
-          </div>
-          <div className="tile overflow-hidden">
-            <img src={img('box')} alt="Kraft packaging with a thank-you note" className="w-full h-full object-cover" />
-          </div>
+          <div className="tile overflow-hidden"><img src={img('tag')} alt="Tag" className="w-full h-full object-cover" /></div>
+          <div className="tile overflow-hidden"><img src={img('box')} alt="Box" className="w-full h-full object-cover" /></div>
           <div className="flex">
-            <div className="tile flex-[121] overflow-hidden">
-              <img src={img('more')} alt="Dress hanging near plants" className="w-full h-full object-cover" />
-            </div>
+            <div className="tile flex-[121] overflow-hidden"><img src={img('more')} alt="Clothes" className="w-full h-full object-cover" /></div>
             <div className="panel-warm flex-[93] flex flex-col items-center justify-between py-5 text-center bg-[#EAE0D0]">
-              <p className="script-note !text-[1.1rem] -rotate-6 mt-8">
-                More<br />than just<br />clothes<br /><span className="text-[#9B5B4A]">♡</span>
-              </p>
+              <p className="script-note !text-[1.1rem] -rotate-6 mt-8">More<br />than just<br />clothes<br /><span className="text-[#9B5B4A]">♡</span></p>
               <Sprig className="w-5" color="#9B5B4A" />
             </div>
           </div>
@@ -412,70 +517,179 @@ function App() {
 
       </main>
 
-      {/* FAQ Section */}
-      <div id="faq" className="scroll-mt-16">
-        <FAQ />
-      </div>
-
-      {/* Contact Us Section */}
-      <div id="contact" className="scroll-mt-16">
-        <ContactUs />
-      </div>
-
-      {/* Footer */}
+      <div id="faq" className="scroll-mt-16"><FAQ /></div>
+      <div id="contact" className="scroll-mt-16"><ContactUs /></div>
       <Footer />
+
+      {/* FILTER DRAWER / MODAL */}
+      {filterDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-sm transition-all animate-fadeIn">
+          <div className="w-full max-w-md bg-[#FAF7F2] h-full shadow-2xl flex flex-col justify-between border-l border-[#DCCFB6] overflow-y-auto p-6">
+            
+            {/* Header */}
+            <div>
+              <div className="flex items-center justify-between pb-4 border-b border-[#DCCFB6]">
+                <div className="flex items-center gap-2">
+                  <SlidersHorizontal className="w-4 h-4 text-[#4A4A22]" />
+                  <h3 className="font-serif text-xl text-[#4A4A22]">Filter Collection</h3>
+                </div>
+                <button 
+                  onClick={() => setFilterDrawerOpen(false)}
+                  className="w-8 h-8 rounded-full bg-white border border-[#DCCFB6] text-[#4A4A22] flex items-center justify-center hover:bg-[#EAE0D0]"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* 1. Max Price Filter */}
+              <div className="py-5 border-b border-[#DCCFB6]/60">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#4A4A22]">Max Price</span>
+                  <span className="font-serif-vintage text-base font-semibold text-[#B5532A]">Up to ₹{maxPrice.toLocaleString('en-IN')}</span>
+                </div>
+                <input
+                  type="range"
+                  min="500"
+                  max="15000"
+                  step="250"
+                  value={maxPrice}
+                  onChange={(e) => setMaxPrice(Number(e.target.value))}
+                  className="w-full accent-[#4A4A22] cursor-pointer"
+                />
+              </div>
+
+              {/* 2. Silhouette Filter */}
+              <div className="py-5 border-b border-[#DCCFB6]/60">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#4A4A22] mb-2.5">
+                  Silhouette / Style
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => setSelectedSilhouette('ALL')} className={pill(selectedSilhouette === 'ALL')}>
+                    All
+                  </button>
+                  {silhouettes.map((s) => (
+                    <button key={s.id} onClick={() => setSelectedSilhouette(s.name)} className={pill(selectedSilhouette === s.name)}>
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3. Craft Filter */}
+              <div className="py-5 border-b border-[#DCCFB6]/60">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#4A4A22] mb-2.5">
+                  Embroidery Craft
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => setSelectedCraft('ALL')} className={pill(selectedCraft === 'ALL')}>
+                    All
+                  </button>
+                  {crafts.map((c) => (
+                    <button key={c.id} onClick={() => setSelectedCraft(c.name)} className={pill(selectedCraft === c.name)}>
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 4. Size Filter */}
+              <div className="py-5 border-b border-[#DCCFB6]/60">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#4A4A22] mb-2.5">
+                  Available Size
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => setSelectedSize('ALL')} className={pill(selectedSize === 'ALL')}>
+                    All
+                  </button>
+                  {ALL_SIZES.map((size) => (
+                    <button key={size} onClick={() => setSelectedSize(size)} className={pill(selectedSize === size)}>
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 5. Color Filter */}
+              {availableColors.length > 0 && (
+                <div className="py-5">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#4A4A22] mb-2.5">
+                    Color
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => setSelectedColor('ALL')} className={pill(selectedColor === 'ALL')}>
+                      All
+                    </button>
+                    {availableColors.map((color) => (
+                      <button key={color} onClick={() => setSelectedColor(color)} className={pill(selectedColor === color)}>
+                        {color}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="pt-6 border-t border-[#DCCFB6] flex gap-3">
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="flex-1 py-2.5 rounded-full border border-[#DCCFB6] bg-white text-[#4A4A22] text-xs uppercase tracking-wider font-medium hover:bg-[#EAE0D0]"
+              >
+                Reset All
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterDrawerOpen(false)}
+                className="flex-[2] py-2.5 rounded-full bg-[#4A4A22] text-[#F5EEE1] text-xs uppercase tracking-wider font-medium hover:bg-[#3F4020] shadow-md"
+              >
+                View {filteredProducts.length} Pieces
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* PRODUCT QUICK VIEW MODAL */}
       {selectedProduct && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all animate-fadeIn"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all"
           onClick={() => setSelectedProduct(null)}
         >
           <div 
             className="relative w-full max-w-3xl bg-[#FAF7F2] rounded-3xl border border-[#DCCFB6] shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-2 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Close Button */}
             <button 
               onClick={() => setSelectedProduct(null)}
               className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-white/80 border border-[#DCCFB6] text-[#4A4A22] flex items-center justify-center hover:bg-white transition-all shadow-sm"
-              aria-label="Close modal"
             >
               <X className="w-5 h-5" />
             </button>
 
-            {/* Product Image Section */}
             <div className="relative bg-[#EFE6D5] min-h-[320px] md:min-h-full">
-              <img 
-                src={selectedProduct.image} 
-                alt={selectedProduct.name} 
-                className="w-full h-full object-cover"
-              />
+              <img src={selectedProduct.image} alt={selectedProduct.name} className="w-full h-full object-cover" />
               <div className="absolute top-3 left-3 bg-[#F5EEE1]/95 px-3 py-1 rounded-full text-[11px] font-semibold text-[#4A4A22] border border-[#DCCFB6] tracking-wider uppercase">
                 {selectedProduct.craft_name || 'Artisanal'}
               </div>
             </div>
 
-            {/* Details Section */}
             <div className="p-6 md:p-8 flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-[#B5532A] uppercase tracking-wider mb-1">
                   <Sparkles className="w-3.5 h-3.5" /> Handcrafted Studio Piece
                 </div>
 
-                <h3 className="font-serif text-2xl md:text-3xl text-[#4A4A22] leading-tight">
-                  {selectedProduct.name}
-                </h3>
-
+                <h3 className="font-serif text-2xl md:text-3xl text-[#4A4A22] leading-tight">{selectedProduct.name}</h3>
                 <p className="font-serif-vintage text-2xl font-bold text-[#4A4A22] mt-2">
                   ₹{parseFloat(selectedProduct.price).toLocaleString('en-IN')}
                 </p>
 
                 <p className="text-sm text-[#6E6A4E] mt-3 leading-relaxed font-light">
-                  {selectedProduct.description || "A delicate vintage-inspired silhouette handcrafted with thoughtful detailing and timeless charm."}
+                  {selectedProduct.description || "A delicate vintage-inspired silhouette handcrafted with thoughtful detailing."}
                 </p>
 
-                {/* Size Selector */}
                 <div className="mt-6">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold text-[#4A4A22] uppercase tracking-wider">Select Size</span>
@@ -502,7 +716,6 @@ function App() {
                   </div>
                 </div>
 
-                {/* Artisan Highlights */}
                 <div className="mt-6 pt-5 border-t border-[#DCCFB6]/60 grid grid-cols-2 gap-2.5 text-xs text-[#6E6A4E]">
                   <div>🌿 {selectedProduct.fabric || '100% Breathable Fabric'}</div>
                   <div>🧵 Hand-stitched Detailing</div>
@@ -511,7 +724,6 @@ function App() {
                 </div>
               </div>
 
-              {/* Order on WhatsApp */}
               <div className="mt-8 pt-4">
                 <button
                   onClick={() => handleWhatsApp(selectedProduct.name, selectedProduct.price, modalSize)}
