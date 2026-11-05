@@ -78,8 +78,8 @@ const handleSubmit = async (e) => {
                   </div>
                   <div>
                     <span className="block text-xs uppercase tracking-wider text-gray-500 font-medium">Email</span>
-                    <a href="mailto:support@gayara.com" className="text-[#3F4228] font-medium hover:underline">
-                      support@gayara.com
+                    <a href="mailto:contactgayara@gmail.com" className="text-[#3F4228] font-medium hover:underline">
+                      contactgayara@gmail.com
                     </a>
                   </div>
                 </li>
@@ -92,8 +92,8 @@ const handleSubmit = async (e) => {
                   </div>
                   <div>
                     <span className="block text-xs uppercase tracking-wider text-gray-500 font-medium">WhatsApp</span>
-                    <a href="https://wa.me/910000000000" target="_blank" rel="noreferrer" className="text-[#3F4228] font-medium hover:underline">
-                      +91 00000 00000
+                    <a href="https://wa.me/919961207239" target="_blank" rel="noreferrer" className="text-[#3F4228] font-medium hover:underline">
+                      +91 9961207239
                     </a>
                   </div>
                 </li>
