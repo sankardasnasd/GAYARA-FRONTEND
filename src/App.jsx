@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { MessageCircle, Menu, X, Sparkles, Ruler } from 'lucide-react';
+import { MessageCircle, Menu, X, Sparkles, Ruler, Search } from 'lucide-react';
 import ContactUs from './components/ContactUs';
 import FAQ from './components/FAQ';
 import Footer from './components/Footer';
@@ -29,6 +29,10 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [modalSize, setModalSize] = useState('M');
+
+  // Search & Sorting States
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('featured');
 
   const API_BASE = import.meta.env.VITE_API_URL || 'https://gayara-backend.onrender.com/api';
 
@@ -87,6 +91,7 @@ function App() {
       active ? 'bg-[#4A4A22] text-[#F5EEE1]' : 'bg-[#FBF7EE] border border-[#DCCFB6] text-[#4A4A22] hover:bg-[#EADFCB]'
     }`;
 
+  // Helper to safely parse sizes from backend or fall back to default
   const getProductSizes = (product) => {
     if (!product || !product.available_sizes) {
       return ['XS', 'S', 'M', 'L', 'XL'];
@@ -100,6 +105,23 @@ function App() {
     setModalSize(available[0] || 'M');
   };
 
+  // Search and Sort Pipeline
+  const filteredProducts = products
+    .filter((p) => {
+      const matchesCraft = selectedCraft === 'ALL' || p.craft_name === selectedCraft;
+      const term = searchTerm.toLowerCase();
+      const matchesSearch = 
+        p.name.toLowerCase().includes(term) || 
+        (p.fabric && p.fabric.toLowerCase().includes(term)) ||
+        (p.craft_name && p.craft_name.toLowerCase().includes(term));
+      return matchesCraft && matchesSearch;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'price-low') return parseFloat(a.price) - parseFloat(b.price);
+      if (sortBy === 'price-high') return parseFloat(b.price) - parseFloat(a.price);
+      return 0;
+    });
+
   return (
     <div className="min-h-screen bg-[#EFE6D5] text-[#3F4020] scroll-smooth">
       
@@ -107,11 +129,13 @@ function App() {
       <header className="sticky top-0 z-40 bg-[#F5EEE1]/95 backdrop-blur-md border-b border-[#DCCFB6] shadow-sm">
         <div className="max-w-6xl mx-auto px-5 py-3.5 flex items-center justify-between">
           
+          {/* Brand Logo */}
           <a href="#top" className="flex items-center gap-2.5 text-[#4A4A22] group">
             <LogoMark className="w-7 h-7 transition-transform group-hover:scale-105" />
             <span className="brand-wordmark text-2xl tracking-wider font-serif">GAYARA</span>
           </a>
 
+          {/* Desktop Nav Links */}
           <nav className="hidden md:flex items-center gap-7 caption !text-[0.95rem]">
             <a href="#styles" className="hover:text-[#B5532A] transition-colors">Styles</a>
             <a href="#crafts" className="hover:text-[#B5532A] transition-colors">Crafts</a>
@@ -122,6 +146,7 @@ function App() {
             <a href="#collection" className="btn-gayara !py-2 !px-5 !text-xs uppercase tracking-widest ml-2">Shop Now</a>
           </nav>
 
+          {/* Mobile Hamburger Button */}
           <button 
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)} 
@@ -132,6 +157,7 @@ function App() {
           </button>
         </div>
 
+        {/* Mobile Dropdown Menu */}
         {mobileMenuOpen && (
           <div className="md:hidden bg-[#F5EEE1] border-b border-[#DCCFB6] px-6 py-4 space-y-3 font-serif text-sm">
             <a href="#styles" onClick={() => setMobileMenuOpen(false)} className="block py-1 text-[#4A4A22] hover:text-[#B5532A]">Styles</a>
@@ -235,11 +261,12 @@ function App() {
 
         {/* ROW 4: Live Django Products Collection */}
         <section id="collection" className="panel p-5 md:p-8 bg-[#F5EEE1] scroll-mt-20">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
             <div>
               <h2 className="section-title font-serif text-3xl text-[#4A4A22]">The Studio Collection</h2>
               <p className="text-xs text-[#6E6A4E] mt-1 font-light">Handcrafted artisanal silhouettes curated for individual style.</p>
             </div>
+            {/* Craft Pill Filters */}
             <div className="flex items-center gap-2 flex-wrap">
               <button onClick={() => setSelectedCraft('ALL')} className={pill(selectedCraft === 'ALL')}>All Pieces</button>
               {crafts.map((c) => (
@@ -250,60 +277,104 @@ function App() {
             </div>
           </div>
 
-          {products.length === 0 ? (
+          {/* Search Bar & Sort Dropdown */}
+          <div className="flex flex-col sm:flex-row gap-3 items-center justify-between mb-6 pb-4 border-b border-[#DCCFB6]/60">
+            <div className="relative w-full sm:w-80">
+              <input
+                type="text"
+                placeholder="Search by dress, craft, or fabric..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-[#FAF7F2] border border-[#DCCFB6] rounded-full py-2 pl-9 pr-8 text-xs text-[#4A4A22] placeholder-[#8A846B] focus:outline-none focus:border-[#4A4A22] transition-colors shadow-sm"
+              />
+              <Search className="w-3.5 h-3.5 text-[#8A846B] absolute left-3.5 top-1/2 -translate-y-1/2" />
+              {searchTerm && (
+                <button 
+                  onClick={() => setSearchTerm('')} 
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[#8A846B] hover:text-[#4A4A22]"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-auto text-xs">
+              <span className="text-[#6E6A4E]">Sort by:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-[#FAF7F2] border border-[#DCCFB6] rounded-lg py-1.5 px-3 text-xs text-[#4A4A22] focus:outline-none cursor-pointer shadow-sm"
+              >
+                <option value="featured">Featured Pieces</option>
+                <option value="price-low">Price: Low to High</option>
+                <option value="price-high">Price: High to Low</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Product Listing */}
+          {filteredProducts.length === 0 ? (
             <div className="text-center py-20 border border-dashed border-[#DCCFB6] rounded-xl">
-              <p className="script-note text-lg text-[#6E6A4E]">No beautiful pieces available yet. Stay tuned for our latest collections!</p>
+              <p className="script-note text-lg text-[#6E6A4E]">
+                {products.length === 0 ? "No beautiful pieces available yet. Stay tuned!" : "No dresses match your search criteria."}
+              </p>
+              {searchTerm && (
+                <button 
+                  onClick={() => { setSearchTerm(''); setSelectedCraft('ALL'); }}
+                  className="mt-3 text-xs text-[#B5532A] underline font-medium"
+                >
+                  Clear search and filters
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {products
-                .filter((p) => selectedCraft === 'ALL' || p.craft_name === selectedCraft)
-                .map((dress) => (
-                  <article 
-                    key={dress.id} 
-                    className="bg-[#FAF7F2] border border-[#DCCFB6] rounded-lg overflow-hidden flex flex-col shadow-sm hover:shadow-md transition-shadow cursor-pointer group"
-                    onClick={() => handleOpenModal(dress)}
-                  >
-                    <div className="tile aspect-[3/4] relative overflow-hidden">
-                      <img 
-                        src={dress.image} 
-                        alt={dress.name} 
-                        className="w-full h-full object-cover !object-top group-hover:scale-105 transition-transform duration-500" 
-                      />
-                      {dress.silhouette_name && (
-                        <span className="absolute top-3 left-3 bg-[#F5EEE1]/95 px-3 py-1 text-[11px] uppercase tracking-widest text-[#4A4A22] rounded shadow-sm">
-                          {dress.silhouette_name}
-                        </span>
-                      )}
-                      <span className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm text-[#4A4A22] text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                        Quick View
+              {filteredProducts.map((dress) => (
+                <article 
+                  key={dress.id} 
+                  className="bg-[#FAF7F2] border border-[#DCCFB6] rounded-lg overflow-hidden flex flex-col shadow-sm hover:shadow-md transition-shadow cursor-pointer group"
+                  onClick={() => handleOpenModal(dress)}
+                >
+                  <div className="tile aspect-[3/4] relative overflow-hidden">
+                    <img 
+                      src={dress.image} 
+                      alt={dress.name} 
+                      className="w-full h-full object-cover !object-top group-hover:scale-105 transition-transform duration-500" 
+                    />
+                    {dress.silhouette_name && (
+                      <span className="absolute top-3 left-3 bg-[#F5EEE1]/95 px-3 py-1 text-[11px] uppercase tracking-widest text-[#4A4A22] rounded shadow-sm">
+                        {dress.silhouette_name}
                       </span>
+                    )}
+                    <span className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm text-[#4A4A22] text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                      Quick View
+                    </span>
+                  </div>
+
+                  <div className="p-5 flex-grow flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between text-xs text-[#6E6A4E] mb-1 font-medium">
+                        <span className="text-[#B5532A] uppercase tracking-wider">{dress.craft_name || 'Handmade'}</span>
+                        <span>{dress.fabric}</span>
+                      </div>
+                      <h3 className="text-2xl leading-tight font-serif text-[#4A4A22] mt-1 group-hover:text-[#B5532A] transition-colors">{dress.name}</h3>
+                      <p className="text-sm text-[#6E6A4E] mt-2 line-clamp-2 font-light leading-relaxed">{dress.description}</p>
                     </div>
 
-                    <div className="p-5 flex-grow flex flex-col justify-between">
-                      <div>
-                        <div className="flex justify-between text-xs text-[#6E6A4E] mb-1 font-medium">
-                          <span className="text-[#B5532A] uppercase tracking-wider">{dress.craft_name || 'Handmade'}</span>
-                          <span>{dress.fabric}</span>
-                        </div>
-                        <h3 className="text-2xl leading-tight font-serif text-[#4A4A22] mt-1 group-hover:text-[#B5532A] transition-colors">{dress.name}</h3>
-                        <p className="text-sm text-[#6E6A4E] mt-2 line-clamp-2 font-light leading-relaxed">{dress.description}</p>
-                      </div>
-
-                      <div className="mt-6 pt-4 border-t border-[#DCCFB6] flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
-                        <span className="font-serif-vintage text-2xl text-[#4A4A22] font-semibold">
-                          ₹{parseFloat(dress.price).toLocaleString('en-IN')}
-                        </span>
-                        <button 
-                          onClick={() => handleWhatsApp(dress.name, dress.price)} 
-                          className="btn-gayara !py-2.5 !px-4 !text-xs inline-flex items-center gap-1.5 uppercase tracking-wider"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5" /> Inquire / Order
-                        </button>
-                      </div>
+                    <div className="mt-6 pt-4 border-t border-[#DCCFB6] flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
+                      <span className="font-serif-vintage text-2xl text-[#4A4A22] font-semibold">
+                        ₹{parseFloat(dress.price).toLocaleString('en-IN')}
+                      </span>
+                      <button 
+                        onClick={() => handleWhatsApp(dress.name, dress.price)} 
+                        className="btn-gayara !py-2.5 !px-4 !text-xs inline-flex items-center gap-1.5 uppercase tracking-wider"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" /> Inquire / Order
+                      </button>
                     </div>
-                  </article>
-                ))}
+                  </div>
+                </article>
+              ))}
             </div>
           )}
         </section>
@@ -357,13 +428,14 @@ function App() {
       {/* PRODUCT QUICK VIEW MODAL */}
       {selectedProduct && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all animate-fadeIn"
           onClick={() => setSelectedProduct(null)}
         >
           <div 
             className="relative w-full max-w-3xl bg-[#FAF7F2] rounded-3xl border border-[#DCCFB6] shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-2 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Close Button */}
             <button 
               onClick={() => setSelectedProduct(null)}
               className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-white/80 border border-[#DCCFB6] text-[#4A4A22] flex items-center justify-center hover:bg-white transition-all shadow-sm"
@@ -372,6 +444,7 @@ function App() {
               <X className="w-5 h-5" />
             </button>
 
+            {/* Product Image Section */}
             <div className="relative bg-[#EFE6D5] min-h-[320px] md:min-h-full">
               <img 
                 src={selectedProduct.image} 
@@ -383,6 +456,7 @@ function App() {
               </div>
             </div>
 
+            {/* Details Section */}
             <div className="p-6 md:p-8 flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-[#B5532A] uppercase tracking-wider mb-1">
@@ -401,6 +475,7 @@ function App() {
                   {selectedProduct.description || "A delicate vintage-inspired silhouette handcrafted with thoughtful detailing and timeless charm."}
                 </p>
 
+                {/* Size Selector */}
                 <div className="mt-6">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold text-[#4A4A22] uppercase tracking-wider">Select Size</span>
@@ -427,6 +502,7 @@ function App() {
                   </div>
                 </div>
 
+                {/* Artisan Highlights */}
                 <div className="mt-6 pt-5 border-t border-[#DCCFB6]/60 grid grid-cols-2 gap-2.5 text-xs text-[#6E6A4E]">
                   <div>🌿 {selectedProduct.fabric || '100% Breathable Fabric'}</div>
                   <div>🧵 Hand-stitched Detailing</div>
@@ -435,6 +511,7 @@ function App() {
                 </div>
               </div>
 
+              {/* Order on WhatsApp */}
               <div className="mt-8 pt-4">
                 <button
                   onClick={() => handleWhatsApp(selectedProduct.name, selectedProduct.price, modalSize)}
