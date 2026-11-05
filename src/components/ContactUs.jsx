@@ -10,42 +10,52 @@ const ContactUs = () => {
   });
 
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://gayara-backend.onrender.com/api';
+  const API_URL = import.meta.env.VITE_API_URL || 'https://gayara-backend.onrender.com/api';
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  try {
-    const response = await fetch(`${API_URL}/contact/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        full_name: formData.fullName,
-        email: formData.email,
-        order_number: formData.orderNumber,
-        subject: formData.subject,
-        message: formData.message,
-      }),
-    });
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMessage('');
 
-    if (response.ok) {
-      setSubmitted(true);
-      setFormData({ fullName: '', email: '', orderNumber: '', subject: '', message: '' });
-    } else {
-      alert("Failed to send message. Please try again.");
+    const payload = {
+      full_name: formData.fullName.trim(),
+      email: formData.email.trim(),
+      order_number: formData.orderNumber.trim() || null,
+      subject: formData.subject.trim(),
+      message: formData.message.trim(),
+    };
+
+    try {
+      const response = await fetch(`${API_URL}/contact/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.status === 201 || response.ok) {
+        setSubmitted(true);
+        setFormData({ fullName: '', email: '', orderNumber: '', subject: '', message: '' });
+      } else {
+        const errorData = await response.json().catch(() => null);
+        console.error("Backend validation error:", errorData);
+        setErrorMessage("Failed to send your message. Please check the provided information and try again.");
+      }
+    } catch (error) {
+      console.error("Submission error:", error);
+      setErrorMessage("Could not connect to the server. Please check your internet connection.");
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error("Submission error:", error);
-    alert("Connection error occurred. Please check your internet connection.");
-  }
-};
+  };
 
   return (
     <section className="min-h-screen bg-[#FDFBF7] text-[#2C2C24] py-16 px-4 sm:px-6 lg:px-8">
@@ -145,13 +155,19 @@ const handleSubmit = async (e) => {
                 <button
                   type="button"
                   onClick={() => setSubmitted(false)}
-                  className="mt-4 text-xs uppercase tracking-widest text-[#4A4A22] underline underline-offset-4"
+                  className="mt-4 text-xs uppercase tracking-widest text-[#4A4A22] underline underline-offset-4 cursor-pointer"
                 >
                   Send another message
                 </button>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-5">
+                {errorMessage && (
+                  <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg">
+                    {errorMessage}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-xs uppercase tracking-wider text-gray-600 mb-2 font-medium">
@@ -232,9 +248,12 @@ const handleSubmit = async (e) => {
 
                 <button
                   type="submit"
-                  className="w-full sm:w-auto px-8 py-3.5 bg-[#4A4A22] hover:bg-[#3B3B1B] text-[#F9F7F1] rounded-lg text-xs uppercase tracking-[0.2em] font-medium transition-colors shadow-sm cursor-pointer"
+                  disabled={loading}
+                  className={`w-full sm:w-auto px-8 py-3.5 bg-[#4A4A22] hover:bg-[#3B3B1B] text-[#F9F7F1] rounded-lg text-xs uppercase tracking-[0.2em] font-medium transition-colors shadow-sm cursor-pointer ${
+                    loading ? 'opacity-60 cursor-not-allowed' : ''
+                  }`}
                 >
-                  Send Message
+                  {loading ? 'Sending...' : 'Send Message'}
                 </button>
 
                 <p className="text-[11px] text-gray-500 pt-2">
